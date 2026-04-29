@@ -48,13 +48,13 @@
         <div class="form-group">
             <label>Inicio y Fin</label>
             <div style="display: flex; gap: 10px;">
-                <input type="time" id="inicio">
-                <input type="time" id="fin">
+                <input type="time" id="inicio" oninput="persistirCampos()">
+                <input type="time" id="fin" oninput="persistirCampos()">
             </div>
         </div>
         <div class="form-group">
             <label>Pedidos realizados en este turno</label>
-            <input type="number" id="pedidos" placeholder="Ej: 6" inputmode="numeric">
+            <input type="number" id="pedidos" placeholder="Ej: 6" inputmode="numeric" oninput="persistirCampos()">
         </div>
         <button class="btn-add" onclick="guardarTurno()">Guardar Turno</button>
     </div>
@@ -75,6 +75,21 @@
 
     <script>
         let registros = JSON.parse(localStorage.getItem('uber_logs_v2')) || [];
+
+        // NUEVA FUNCIÓN: Recupera lo que dejaste escrito al abrir la página
+        window.onload = () => {
+            document.getElementById('inicio').value = localStorage.getItem('temp_inicio') || "";
+            document.getElementById('fin').value = localStorage.getItem('temp_fin') || "";
+            document.getElementById('pedidos').value = localStorage.getItem('temp_pedidos') || "";
+            actualizarUI();
+        };
+
+        // NUEVA FUNCIÓN: Guarda cada campo por separado en cuanto lo tocas
+        function persistirCampos() {
+            localStorage.setItem('temp_inicio', document.getElementById('inicio').value);
+            localStorage.setItem('temp_fin', document.getElementById('fin').value);
+            localStorage.setItem('temp_pedidos', document.getElementById('pedidos').value);
+        }
 
         function aDecimal(horaStr) {
             const [h, m] = horaStr.split(':').map(Number);
@@ -109,10 +124,17 @@
 
             registros.push(nuevo);
             localStorage.setItem('uber_logs_v2', JSON.stringify(registros));
-            actualizarUI();
             
-            // Limpiar inputs
+            // LIMPIEZA: Borramos la memoria temporal solo cuando el turno se guarda de verdad
+            localStorage.removeItem('temp_inicio');
+            localStorage.removeItem('temp_fin');
+            localStorage.removeItem('temp_pedidos');
+            
+            document.getElementById('inicio').value = "";
+            document.getElementById('fin').value = "";
             document.getElementById('pedidos').value = "";
+            
+            actualizarUI();
         }
 
         function eliminarTurno(id) {
@@ -130,7 +152,6 @@
             let totalH = 0;
             let totalP = 0;
 
-            // Agrupar por día
             const grupos = {};
             registros.forEach(r => {
                 if (!grupos[r.fecha]) grupos[r.fecha] = { turnos: [], totalH: 0, totalP: 0 };
@@ -141,7 +162,6 @@
                 totalP += r.pedidos;
             });
 
-            // Dibujar interfaz
             let colorIdx = 0;
             for (const dia in grupos) {
                 const g = grupos[dia];
@@ -166,7 +186,6 @@
                 colorIdx++;
             }
 
-            // Estadísticas generales
             document.getElementById('totalH').innerText = aFormatoHumano(totalH);
             document.getElementById('totalP').innerText = totalP;
             const faltan = 30 - totalH;
@@ -177,6 +196,9 @@
         function borrarTodo() {
             if(confirm("Se borrará toda la semana. ¿Estás seguro?")) {
                 localStorage.removeItem('uber_logs_v2');
+                localStorage.removeItem('temp_inicio');
+                localStorage.removeItem('temp_fin');
+                localStorage.removeItem('temp_pedidos');
                 registros = [];
                 actualizarUI();
             }
