@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Control de Reparto</title>
+    <style>
+        :root {
+            --primary: #007aff;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1c1e21;
+        }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
+        .card { background: var(--card); padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h2 { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--primary); display: flex; justify-content: space-between; }
+        
+        /* Formulario */
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+        .btn-add { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; margin-top: 10px; }
+
+        /* Estadísticas */
+        .grid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-item { background: #f0f7ff; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #d0e3ff; }
+        .stat-item small { display: block; font-size: 0.75rem; color: #666; margin-bottom: 4px; }
+        .stat-item b { font-size: 1rem; color: var(--primary); }
+
+        /* Historial por días */
+        .day-group { margin-top: 15px; border-radius: 12px; overflow: hidden; border: 1px solid #eee; }
+        .day-header { padding: 10px 15px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+        .turn-item { background: white; padding: 10px 15px; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f0f0f0; }
+        .btn-del { background: #ff3b3022; color: #ff3b30; border: none; padding: 5px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; }
+        
+        /* Colores para días */
+        .color-0 { background-color: #e3f2fd; color: #1565c0; } /* Azul */
+        .color-1 { background-color: #f1f8e9; color: #33691e; } /* Verde */
+        .color-2 { background-color: #fff3e0; color: #e65100; } /* Naranja */
+        .color-3 { background-color: #f3e5f5; color: #4a148c; } /* Morado */
+        .color-4 { background-color: #efebe9; color: #4e342e; } /* Gris/Marrón */
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Registrar Turno</h2>
+        <div class="form-group">
+            <label>Inicio y Fin</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="time" id="inicio">
+                <input type="time" id="fin">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Pedidos realizados en este turno</label>
+            <input type="number" id="pedidos" placeholder="Ej: 6" inputmode="numeric">
+        </div>
+        <button class="btn-add" onclick="guardarTurno()">Guardar Turno</button>
+    </div>
+
+    <div class="card">
+        <h2>Progreso Semanal</h2>
+        <div class="grid-stats">
+            <div class="stat-item"><small>Total Horas</small><b id="totalH">0h 0m</b></div>
+            <div class="stat-item"><small>Faltan (Contrato)</small><b id="faltan">30h 0m</b></div>
+            <div class="stat-item"><small>Pedidos Totales</small><b id="totalP">0</b></div>
+            <div class="stat-item"><small>Promedio Semanal</small><b id="promedio">0 p/h</b></div>
+        </div>
+    </div>
+
+    <div id="listaDias"></div>
+
+    <button onclick="borrarTodo()" style="width: 100%; background: none; color: #999; border: none; padding: 20px; font-size: 0.8rem;">Borrar todos los datos de la semana</button>
+
+    <script>
+        let registros = JSON.parse(localStorage.getItem('uber_logs_v2')) || [];
+
+        function aDecimal(horaStr) {
+            const [h, m] = horaStr.split(':').map(Number);
+            return h + (m / 60);
+        }
+
+        function aFormatoHumano(decimal) {
+            const h = Math.floor(decimal);
+            const m = Math.round((decimal - h) * 60);
+            return `${h}h ${m}m`;
+        }
+
+        function guardarTurno() {
+            const inicio = document.getElementById('inicio').value;
+            const fin = document.getElementById('fin').value;
+            const pedidos = parseInt(document.getElementById('pedidos').value);
+
+            if (!inicio || !fin || isNaN(pedidos)) return alert("Completa los datos");
+
+            let duracion = aDecimal(fin) - aDecimal(inicio);
+            if (duracion < 0) duracion += 24;
+
+            const nuevo = {
+                id: Date.now(),
+                fecha: new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }),
+                fechaKey: new Date().toLocaleDateString(),
+                horas: duracion,
+                pedidos: pedidos,
+                tInicio: inicio,
+                tFin: fin
+            };
+
+            registros.push(nuevo);
+            localStorage.setItem('uber_logs_v2', JSON.stringify(registros));
+            actualizarUI();
+            
+            // Limpiar inputs
+            document.getElementById('pedidos').value = "";
+        }
+
+        function eliminarTurno(id) {
+            if(confirm("¿Eliminar este turno?")) {
+                registros = registros.filter(r => r.id !== id);
+                localStorage.setItem('uber_logs_v2', JSON.stringify(registros));
+                actualizarUI();
+            }
+        }
+
+        function actualizarUI() {
+            const lista = document.getElementById('listaDias');
+            lista.innerHTML = "";
+            
+            let totalH = 0;
+            let totalP = 0;
+
+            // Agrupar por día
+            const grupos = {};
+            registros.forEach(r => {
+                if (!grupos[r.fecha]) grupos[r.fecha] = { turnos: [], totalH: 0, totalP: 0 };
+                grupos[r.fecha].turnos.push(r);
+                grupos[r.fecha].totalH += r.horas;
+                grupos[r.fecha].totalP += r.pedidos;
+                totalH += r.horas;
+                totalP += r.pedidos;
+            });
+
+            // Dibujar interfaz
+            let colorIdx = 0;
+            for (const dia in grupos) {
+                const g = grupos[dia];
+                let htmlDia = `
+                    <div class="day-group">
+                        <div class="day-header color-${colorIdx % 5}">
+                            <span>${dia.toUpperCase()}</span>
+                            <span>${g.totalP} ped. | ${aFormatoHumano(g.totalH)}</span>
+                        </div>`;
+                
+                g.turnos.forEach(t => {
+                    htmlDia += `
+                        <div class="turn-item">
+                            <span>🕒 ${t.tInicio} - ${t.tFin}</span>
+                            <span>📦 ${t.pedidos} ped.</span>
+                            <button class="btn-del" onclick="eliminarTurno(${t.id})">Borrar</button>
+                        </div>`;
+                });
+                
+                htmlDia += `</div>`;
+                lista.innerHTML += htmlDia;
+                colorIdx++;
+            }
+
+            // Estadísticas generales
+            document.getElementById('totalH').innerText = aFormatoHumano(totalH);
+            document.getElementById('totalP').innerText = totalP;
+            const faltan = 30 - totalH;
+            document.getElementById('faltan').innerText = aFormatoHumano(faltan > 0 ? faltan : 0);
+            document.getElementById('promedio').innerText = totalH > 0 ? (totalP / totalH).toFixed(2) + " p/h" : "0 p/h";
+        }
+
+        function borrarTodo() {
+            if(confirm("Se borrará toda la semana. ¿Estás seguro?")) {
+                localStorage.removeItem('uber_logs_v2');
+                registros = [];
+                actualizarUI();
+            }
+        }
+
+        actualizarUI();
+    </script>
+
+    <p style="text-align:center; font-size:10px; color:#999; margin-top: -10px; padding-bottom: 20px;">
+        © 2026 Jose Arnoldo - El Ritmo del Fútbol Tech. Prohibida su reproducción.
+    </p>
+    
+</body>
+</html>
