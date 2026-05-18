@@ -43,6 +43,12 @@
 </head>
 <body>
 
+<div class="card" style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+    <label for="horasContratoInput" style="font-weight: 600; font-size: 0.9rem;">Horas de contrato semanal:</label>
+    <input type="number" id="horasContratoInput" value="30" min="1" max="60" oninput="actualizarUI()" style="width: 65px; padding: 6px; border: 1px solid #ddd; border-radius: 8px; text-align: center; font-size: 1rem; font-weight: bold;">
+</div>
+
+
     <div class="card">
         <h2>Registrar Turno</h2>
         <div class="form-group">
@@ -52,6 +58,18 @@
                 <input type="time" id="fin" oninput="persistirCampos()">
             </div>
         </div>
+        <div class="form-group">
+    <label for="diaSemana">Día del turno:</label>
+    <select id="diaSemana" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px;">
+        <option value="Lunes">Lunes</option>
+        <option value="Martes">Martes</option>
+        <option value="Miércoles">Miércoles</option>
+        <option value="Jueves">Jueves</option>
+        <option value="Viernes">Viernes</option>
+        <option value="Sábado">Sábado</option>
+        <option value="Domingo">Domingo</option>
+    </select>
+</div>
         <div class="form-group">
             <label>Pedidos realizados en este turno</label>
             <input type="number" id="pedidos" placeholder="Ej: 6" inputmode="numeric" oninput="persistirCampos()">
@@ -103,6 +121,8 @@
         }
 
         function guardarTurno() {
+            // Captura el día que el usuario eligió en la pantalla
+            const diaSeleccionado = document.getElementById('diaSemana').value;
             const inicio = document.getElementById('inicio').value;
             const fin = document.getElementById('fin').value;
             const pedidos = parseInt(document.getElementById('pedidos').value);
@@ -114,8 +134,16 @@
 
             const nuevo = {
                 id: Date.now(),
-                fecha: new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }),
-                fechaKey: new Date().toLocaleDateString(),
+               fecha: (function() {
+            const diasInput = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const hoy = new Date();
+            const fechaTurno = new Date(hoy);
+            // Calculamos la diferencia de días entre el día seleccionado y hoy
+            const difDias = diasInput.indexOf(diaSeleccionado) - hoy.getDay();
+            fechaTurno.setDate(hoy.getDate() + (difDias > 0 ? difDias - 7 : difDias));
+            return fechaTurno.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+        })(),
+        fechaKey: diaSeleccionado,
                 horas: duracion,
                 pedidos: pedidos,
                 tInicio: inicio,
@@ -188,7 +216,8 @@
 
             document.getElementById('totalH').innerText = aFormatoHumano(totalH);
             document.getElementById('totalP').innerText = totalP;
-            const faltan = 30 - totalH;
+            const horasContrato = parseFloat(document.getElementById('horasContratoInput').value) || 30;
+            const faltan = horasContrato - totalH;
             document.getElementById('faltan').innerText = aFormatoHumano(faltan > 0 ? faltan : 0);
             document.getElementById('promedio').innerText = totalH > 0 ? (totalP / totalH).toFixed(2) + " p/h" : "0 p/h";
         }
@@ -203,7 +232,17 @@
                 actualizarUI();
             }
         }
+    // Pone el día actual de la semana de forma automática al abrir la página
+    document.addEventListener("DOMContentLoaded", function() {
+    const diasSemanaArray = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const hoy = new Date();
+    const nombreDiaHoy = diasSemanaArray[hoy.getDay()];
 
+    const selectorDia = document.getElementById('diaSemana');
+    if (selectorDia) {
+        selectorDia.value = nombreDiaHoy;
+    }
+        });
         actualizarUI();
     </script>
 
